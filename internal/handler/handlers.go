@@ -1,0 +1,334 @@
+package handler
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+
+	"github.com/qesterrx/gofermart/internal/auth"
+	"github.com/qesterrx/gofermart/internal/logger"
+	"github.com/qesterrx/gofermart/internal/model"
+	"github.com/qesterrx/gofermart/internal/service"
+	"github.com/qesterrx/gofermart/internal/status"
+)
+
+type HandlerContainer struct {
+	log *logger.Logger
+	gms *service.Gofermart
+}
+
+func NewHandlerContainer(logger *logger.Logger, service *service.Gofermart) (*HandlerContainer, error) {
+	return &HandlerContainer{log: logger, gms: service}, nil
+}
+
+func (hc *HandlerContainer) PostUserRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	ul := model.AuthUser{}
+
+	err := json.NewDecoder(r.Body).Decode(&ul)
+	if err != nil {
+		hc.log.Error("Ошибка десериализации в методе UserRegister")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	accessToken, st := hc.gms.Register(ul.Login, ul.Password)
+
+	switch st {
+	case status.StGeneralError:
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	case status.StUserAlreadyExists:
+		w.WriteHeader(http.StatusConflict)
+		return
+	case status.StErrorGenerateJWT:
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	case status.StUserWrongPassword:
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if st != status.StUserLogined {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.CookieName,
+		Value:    accessToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   int(auth.JWTExpire.Seconds()),
+	})
+
+	hc.log.Info("Call PostUserRegister")
+
+	w.WriteHeader(http.StatusOK)
+
+}
+
+func (hc *HandlerContainer) PostUserLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	ul := model.AuthUser{}
+
+	err := json.NewDecoder(r.Body).Decode(&ul)
+	if err != nil {
+		hc.log.Error("Ошибка десериализации в методе UserLogin")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	accessToken, st := hc.gms.Login(ul.Login, ul.Password)
+	switch st {
+	case status.StGeneralError:
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	case status.StErrorGenerateJWT:
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	case status.StUserWrongPassword:
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if st != status.StUserLogined {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.CookieName,
+		Value:    accessToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   int(auth.JWTExpire.Seconds()),
+	})
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (hc *HandlerContainer) MethodUserOrders(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		hc.PostUserOrders(w, r)
+	case http.MethodGet:
+		hc.GetUserOrders(w, r)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+
+	}
+}
+
+func (hc *HandlerContainer) PostUserOrders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	if r.Header.Get("Content-Type") != "text/plain" || r.ContentLength == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	hc.log.Info(fmt.Sprintf("Call PostUserOrder, User=%d name=%s", jwtc.UserID, jwtc.Username))
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	order := string(body)
+
+	err = hc.gms.CheckOrderNumber(order)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+
+	st := hc.gms.NewOrder(jwtc.UserID, order)
+
+	switch st {
+	case status.StOrderDuplicated:
+		w.WriteHeader(http.StatusOK)
+	case status.StOrderAnotherUser:
+		w.WriteHeader(http.StatusConflict)
+	case status.StOk:
+		w.WriteHeader(http.StatusAccepted)
+	default:
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+}
+
+func (hc *HandlerContainer) GetUserOrders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	hc.log.Info(fmt.Sprintf("Call GetUserOrder, User=%d name=%s", jwtc.UserID, jwtc.Username))
+
+	orders, st := hc.gms.GetOrders(jwtc.UserID)
+	if st != status.StOk {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if len(orders) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	body, err := json.MarshalIndent(&orders, "", " ")
+	if err != nil {
+		hc.log.Error(fmt.Sprintf("Ошибка сериализации данных GetUserOrders UserID=%d", jwtc.UserID))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(body)
+
+}
+
+func (hc *HandlerContainer) GetUserBalance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	hc.log.Info(fmt.Sprintf("Call GetUserBalance, User=%d name=%s", jwtc.UserID, jwtc.Username))
+
+	balance, st := hc.gms.GetBalance(jwtc.UserID)
+
+	if st != status.StOk {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	body, err := json.MarshalIndent(&balance, "", " ")
+	if err != nil {
+		hc.log.Error(fmt.Sprintf("Ошибка сериализации данных GetUserOrders UserID=%d", jwtc.UserID))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(body)
+}
+
+func (hc *HandlerContainer) PostUserBalanceWithdraw(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	hc.log.Info(fmt.Sprintf("Call PostUserBalanceWithdraw, User=%d name=%s", jwtc.UserID, jwtc.Username))
+
+	withdraw := model.NewWithdraw{}
+
+	err := json.NewDecoder(r.Body).Decode(&withdraw)
+	if err != nil {
+		hc.log.Error(fmt.Sprintf("Ошибка сериализации данных GetUserBalance UserID=%d", jwtc.UserID))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	err = hc.gms.CheckOrderNumber(withdraw.Order)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+	st := hc.gms.NewWithdraw(jwtc.UserID, &withdraw)
+	if st == status.StWithdrawInsufficientFunds {
+		w.WriteHeader(http.StatusPaymentRequired)
+		return
+	}
+
+	if st != status.StOk {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (hc *HandlerContainer) GetUserWithdrawals(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	hc.log.Info(fmt.Sprintf("Call GetUserWithdrawals, User=%d name=%s", jwtc.UserID, jwtc.Username))
+
+	withdrawals, st := hc.gms.GetWithdrawals(jwtc.UserID)
+	if st != status.StOk {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if len(withdrawals) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	body, err := json.MarshalIndent(&withdrawals, "", " ")
+	if err != nil {
+		hc.log.Error(fmt.Sprintf("Ошибка сериализации данных GetUserWithdrawals UserID=%d", jwtc.UserID))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(body)
+}
