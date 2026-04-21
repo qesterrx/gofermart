@@ -59,7 +59,7 @@ func (l *Logger) Error(msg string) {
 // With - Создание нового логгера на основе существующего
 // на вход принимает строку with string
 func (l *Logger) With(with string) *Logger {
-	l.with = l.with + "->" + with
-	log := zerolog.New(l.writer).With().Timestamp().Logger().With().Str("with", l.with).Logger()
-	return &Logger{log: log, with: l.with}
+	with = l.with + "->" + with
+	log := zerolog.New(l.writer).With().Timestamp().Logger().With().Str("with", with).Logger()
+	return &Logger{log: log, with: with}
 }

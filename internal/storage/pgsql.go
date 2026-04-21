@@ -144,7 +144,7 @@ func (pg *PGSQL) GetUser(login string) (*model.DBUser, status.Status) {
 // order int - Номер заказа
 // user int - ИД пользователя
 // Результат возвращает в виде status.Status
-// status.StOk - успех, переданный заказ отсуствует в БД
+// status.StOrderNotExists - успех, переданный заказ отсуствует в БД
 // status.StOrderDuplicated - заказ уже заведен пользователем ранее
 // status.StOrderAnotherUser - заказ заведен ранее другим пользователем
 // status.StGeneralError - общая ошибка метода
@@ -167,21 +167,25 @@ func (pg *PGSQL) CheckOrderExist(order int, user int) status.Status {
 
 	if tmpUserOrder != nil {
 		if *tmpUserOrder == user {
+			pg.log.Info("попытка заведения заказа зарегистрированного ранее (как order)")
 			return status.StOrderDuplicated
 		} else {
+			pg.log.Info("попытка заведения заказа зарегистрированного ранее другим пользователем (как order)")
 			return status.StOrderAnotherUser
 		}
 	}
 
 	if tmpUserWithdraw != nil {
 		if *tmpUserWithdraw == user {
+			pg.log.Info("попытка заведения заказа зарегистрированного ранее (как withdraw)")
 			return status.StOrderDuplicated
 		} else {
+			pg.log.Info("попытка заведения заказа зарегистрированного ранее другим пользователем (как withdraw)")
 			return status.StOrderAnotherUser
 		}
 	}
 
-	return status.StOk
+	return status.StOrderNotExists
 }
 
 // NewOrder - Заведение нового наряда в БД

@@ -9,7 +9,7 @@ import (
 )
 
 // JWTSecretKey - Ключ для кодирования JWT токена
-var JWTSecretKey []byte = []byte("xK9mP2nQ5rT8vW3yZ7bA1cD4eF6gH9jK2lM5oP8sU1vX4")
+var JWTSecretKey []byte = []byte("hello")
 
 // JWTExpire - Срок действия токена
 var JWTExpire time.Duration = 60 * time.Minute

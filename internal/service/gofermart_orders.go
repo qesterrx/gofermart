@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 	"strconv"
-	"time"
+	"sync"
 
 	"github.com/qesterrx/gofermart/internal/model"
 	"github.com/qesterrx/gofermart/internal/status"
@@ -40,7 +40,7 @@ func (gm *Gofermart) CheckOrderNumber(order string) error {
 	}
 
 	if (sum % 10) != 0 {
-		return fmt.Errorf("order: ошибка контрольной сумма ")
+		return fmt.Errorf("order: ошибка контрольной суммы")
 	}
 
 	return nil
@@ -59,8 +59,21 @@ func (gm *Gofermart) NewOrder(user int, order string) status.Status {
 		return status.StGeneralError
 	}
 
+	//Нужно сделать контроль что одновременно не будут создаваться заявки одного пользователя
+	gm.mxLocks.Lock()
+	userLock, exists := gm.locks[user]
+
+	if !exists {
+		userLock = &sync.Mutex{}
+		gm.locks[user] = userLock
+	}
+
+	gm.mxLocks.Unlock() //освобождаем общий мьютекс
+	userLock.Lock()     //занимаем мьютекс пользователя
+	defer userLock.Unlock()
+
 	st := gm.storage.CheckOrderExist(ord, user)
-	if st != status.StOk {
+	if st != status.StOrderNotExists {
 		return st
 	}
 
@@ -77,6 +90,10 @@ func (gm *Gofermart) NewOrder(user int, order string) status.Status {
 func (gm *Gofermart) GetOrders(user int) ([]model.Order, status.Status) {
 	dborders, st := gm.storage.GetOrders(user)
 
+	if st != status.StOk {
+		return nil, status.StGeneralError
+	}
+
 	orders := []model.Order{}
 	for _, dbord := range *dborders {
 		var accrual *float32
@@ -87,7 +104,7 @@ func (gm *Gofermart) GetOrders(user int) ([]model.Order, status.Status) {
 		orders = append(orders, model.Order{Order: strconv.Itoa(dbord.Order), Status: dbord.Status, Accrual: accrual, Uploaded: dbord.Uploaded})
 	}
 
-	return orders, st
+	return orders, status.StOk
 }
 
 // GetBalance - функция возвращающая баланс пользоватлея
@@ -110,24 +127,48 @@ func (gm *Gofermart) GetBalance(user int) (model.Balance, status.Status) {
 // При не успехе возвращает один из статусов status.St*
 func (gm *Gofermart) NewWithdraw(user int, wd *model.NewWithdraw) status.Status {
 
-	//На всякий случай будем отклонять слишком частые запросы от пользователей на списание - по идее мне тут даже не нужен мьютекс, т.к. при большом количестве запросов я буду просто перетирать значение и не разрешу операцию пока юзер не успокоится, но вообще можно и вынести логику
-	tm, exists := gm.wul[user]
-	if exists && tm.Add(gm.wulttl).After(time.Now()) {
-		gm.log.Info(fmt.Sprintf("Частые запросы Withdraw от пользователя %d", user))
-		return status.StGeneralError
-	}
-	gm.wul[user] = time.Now()
-
 	ord, err := strconv.Atoi(wd.Order)
 	if err != nil {
 		return status.StGeneralError
 	}
 
+	//Переводим в копейки
 	tmpSum := int(wd.Sum * 100)
 
-	withdraw := model.DBWithdraw{Order: ord, User: user, Sum: tmpSum}
+	//Нужно сделать контроль что одновременно не будут выполняться списания одного пользователя
+	gm.mxLocks.Lock()
+	userLock, exists := gm.locks[user]
 
-	return gm.storage.NewWithdraw(&withdraw)
+	if !exists {
+		userLock = &sync.Mutex{}
+		gm.locks[user] = userLock
+	}
+
+	gm.mxLocks.Unlock() //освобождаем общий мьютекс
+	userLock.Lock()     //занимаем мьютекс пользователя
+	defer userLock.Unlock()
+
+	//Проверяем заявку
+	st := gm.storage.CheckOrderExist(ord, user)
+	if st != status.StOrderNotExists {
+		return st
+	}
+
+	//Проверяем баланс
+	amount, _, st := gm.storage.GetBalance(user)
+	if st != status.StOk {
+		return status.StGeneralError
+	}
+
+	//Проверяем достаточность суммы
+	if tmpSum > amount {
+		return status.StWithdrawInsufficientFunds
+	}
+
+	withdraw := model.DBWithdraw{Order: ord, User: user, Sum: tmpSum}
+	st = gm.storage.NewWithdraw(&withdraw)
+
+	return st
 }
 
 // GetWithdrawals - функция возвращающая заказы пользователя на списание бонусов
@@ -137,6 +178,10 @@ func (gm *Gofermart) NewWithdraw(user int, wd *model.NewWithdraw) status.Status 
 // При не успехе возвращает один из статусов status.St*
 func (gm *Gofermart) GetWithdrawals(user int) ([]model.Withdraw, status.Status) {
 	dbwds, st := gm.storage.GetWithdrawals(user)
+
+	if st != status.StOk {
+		return nil, status.StGeneralError
+	}
 
 	wds := []model.Withdraw{}
 	for _, wd := range *dbwds {

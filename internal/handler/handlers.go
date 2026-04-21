@@ -9,22 +9,32 @@ import (
 	"github.com/qesterrx/gofermart/internal/auth"
 	"github.com/qesterrx/gofermart/internal/logger"
 	"github.com/qesterrx/gofermart/internal/model"
-	"github.com/qesterrx/gofermart/internal/service"
 	"github.com/qesterrx/gofermart/internal/status"
 )
+
+type GofermartService interface {
+	Login(login, password string) (string, status.Status)
+	Register(login, password string) status.Status
+	CheckOrderNumber(order string) error
+	NewOrder(user int, order string) status.Status
+	GetOrders(user int) ([]model.Order, status.Status)
+	GetBalance(user int) (model.Balance, status.Status)
+	NewWithdraw(user int, wd *model.NewWithdraw) status.Status
+	GetWithdrawals(user int) ([]model.Withdraw, status.Status)
+}
 
 // HandlerContainer - контейнер с хендлерами сервиса
 // Новый контейнер создается через функцию NewHandlerContainer
 type HandlerContainer struct {
 	log *logger.Logger
-	gms *service.Gofermart
+	gms GofermartService
 }
 
 // NewHandlerContainer - Создает новый контейнер хендлеров
 // Входные параметры:
 // logger *logger.Logger - ссылка на логгер
 // service *service.Gofermart - ссылка на реализацию сервисного слоя
-func NewHandlerContainer(logger *logger.Logger, service *service.Gofermart) (*HandlerContainer, error) {
+func NewHandlerContainer(logger *logger.Logger, service GofermartService) (*HandlerContainer, error) {
 	return &HandlerContainer{log: logger, gms: service}, nil
 }
 
@@ -44,7 +54,12 @@ func (hc *HandlerContainer) PostUserRegister(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	accessToken, st := hc.gms.Register(ul.Login, ul.Password)
+	st := hc.gms.Register(ul.Login, ul.Password)
+
+	var accessToken string
+	if st == status.StOk {
+		accessToken, st = hc.gms.Login(ul.Login, ul.Password)
+	}
 
 	switch st {
 	case status.StGeneralError:
@@ -73,7 +88,7 @@ func (hc *HandlerContainer) PostUserRegister(w http.ResponseWriter, r *http.Requ
 		MaxAge:   int(auth.JWTExpire.Seconds()),
 	})
 
-	hc.log.Info("Call PostUserRegister")
+	hc.log.Debug("Call PostUserRegister")
 
 	w.WriteHeader(http.StatusOK)
 
@@ -154,7 +169,7 @@ func (hc *HandlerContainer) PostUserOrders(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	hc.log.Info(fmt.Sprintf("Call PostUserOrder, User=%d name=%s", jwtc.UserID, jwtc.Username))
+	hc.log.Debug(fmt.Sprintf("Call PostUserOrder, User=%d name=%s", jwtc.UserID, jwtc.Username))
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -199,7 +214,7 @@ func (hc *HandlerContainer) GetUserOrders(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	hc.log.Info(fmt.Sprintf("Call GetUserOrder, User=%d name=%s", jwtc.UserID, jwtc.Username))
+	hc.log.Debug(fmt.Sprintf("Call GetUserOrder, User=%d name=%s", jwtc.UserID, jwtc.Username))
 
 	orders, st := hc.gms.GetOrders(jwtc.UserID)
 	if st != status.StOk {
@@ -238,7 +253,7 @@ func (hc *HandlerContainer) GetUserBalance(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	hc.log.Info(fmt.Sprintf("Call GetUserBalance, User=%d name=%s", jwtc.UserID, jwtc.Username))
+	hc.log.Debug(fmt.Sprintf("Call GetUserBalance, User=%d name=%s", jwtc.UserID, jwtc.Username))
 
 	balance, st := hc.gms.GetBalance(jwtc.UserID)
 
@@ -272,7 +287,7 @@ func (hc *HandlerContainer) PostUserBalanceWithdraw(w http.ResponseWriter, r *ht
 		return
 	}
 
-	hc.log.Info(fmt.Sprintf("Call PostUserBalanceWithdraw, User=%d name=%s", jwtc.UserID, jwtc.Username))
+	hc.log.Debug(fmt.Sprintf("Call PostUserBalanceWithdraw, User=%d name=%s", jwtc.UserID, jwtc.Username))
 
 	withdraw := model.NewWithdraw{}
 
@@ -316,7 +331,7 @@ func (hc *HandlerContainer) GetUserWithdrawals(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	hc.log.Info(fmt.Sprintf("Call GetUserWithdrawals, User=%d name=%s", jwtc.UserID, jwtc.Username))
+	hc.log.Debug(fmt.Sprintf("Call GetUserWithdrawals, User=%d name=%s", jwtc.UserID, jwtc.Username))
 
 	withdrawals, st := hc.gms.GetWithdrawals(jwtc.UserID)
 	if st != status.StOk {

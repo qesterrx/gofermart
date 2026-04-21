@@ -1,7 +1,7 @@
 package service
 
 import (
-	"time"
+	"sync"
 
 	"github.com/qesterrx/gofermart/internal/auth"
 	"github.com/qesterrx/gofermart/internal/logger"
@@ -27,8 +27,9 @@ type GofermartStorage interface {
 type Gofermart struct {
 	log     *logger.Logger
 	storage GofermartStorage
-	wul     map[int]time.Time
-	wulttl  time.Duration
+
+	locks   map[int]*sync.Mutex
+	mxLocks sync.Mutex
 }
 
 // NewGofermart - создает новый Gofermart
@@ -38,9 +39,11 @@ type Gofermart struct {
 func NewGofermart(logger *logger.Logger, storage GofermartStorage) (*Gofermart, error) {
 
 	llog := logger.With("service")
-	wul := map[int]time.Time{}
 
-	return &Gofermart{log: llog, storage: storage, wul: wul, wulttl: 500 * time.Millisecond}, nil
+	//Сделаем мапу защелок, ключем будет выступать ИД пользователя
+	locks := make(map[int]*sync.Mutex)
+
+	return &Gofermart{log: llog, storage: storage, locks: locks}, nil
 }
 
 // Login - функция авторизации пользователя по набору логин/пароль
@@ -52,7 +55,7 @@ func (gm *Gofermart) Login(login, password string) (string, status.Status) {
 
 	user, st := gm.storage.GetUser(login)
 
-	if st != status.StUserNotFound || bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+	if st == status.StUserNotFound || st == status.StOk && bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
 		gm.log.Info("Ошибка авторизации в методе UserLogin")
 		return "", status.StUserWrongPassword
 	}
@@ -76,20 +79,16 @@ func (gm *Gofermart) Login(login, password string) (string, status.Status) {
 // При не успехе возвращает пустой токен и один из статусов:
 // status.StUserAlreadyExists - Имя пользователя занято
 // status.StGeneralError - Общая ошибка, может быть связана с генерацией хеша пароля или ошибкой работы с БД
-func (gm *Gofermart) Register(login, password string) (string, status.Status) {
+func (gm *Gofermart) Register(login, password string) status.Status {
 
 	pswd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		gm.log.Error("Ошибка генерации hash пароля")
-		return "", status.StGeneralError
+		return status.StGeneralError
 	}
 
 	st := gm.storage.NewUser(login, string(pswd))
 
-	if st != status.StOk {
-		return "", st
-	}
-
-	return gm.Login(login, password)
+	return st
 
 }
