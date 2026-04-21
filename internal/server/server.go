@@ -10,11 +10,18 @@ import (
 	"github.com/qesterrx/gofermart/internal/middleware"
 )
 
+// ServerGofermatr - контейнер http сервера
+// Для создания использовать NewServer
 type ServerGofermatr struct {
 	log    *logger.Logger
 	server *http.Server
 }
 
+// NewServer - создает новый ServerGofermatr
+// Входящие параметры:
+// log *logger.Logger - ссылка на логгер
+// address string - адрес запуска http сервера в формате host:port
+// handlers *handler.HandlerContainer - ссылка на объект HandlerContainer
 func NewServer(log *logger.Logger, address string, handlers *handler.HandlerContainer) *ServerGofermatr {
 
 	mux := http.NewServeMux()
@@ -52,10 +59,12 @@ func NewServer(log *logger.Logger, address string, handlers *handler.HandlerCont
 	return &ServerGofermatr{server: server, log: log}
 }
 
+// ListenAndServe - обертка http.Server.ListenAndServe
 func (sg *ServerGofermatr) ListenAndServe() error {
 	return sg.server.ListenAndServe()
 }
 
+// Shutdown - обертка http.Server.Shutdown
 func (sg *ServerGofermatr) Shutdown(ctx context.Context) error {
 	return sg.server.Shutdown(ctx)
 }

@@ -13,15 +13,22 @@ import (
 	"github.com/qesterrx/gofermart/internal/status"
 )
 
+// HandlerContainer - контейнер с хендлерами сервиса
+// Новый контейнер создается через функцию NewHandlerContainer
 type HandlerContainer struct {
 	log *logger.Logger
 	gms *service.Gofermart
 }
 
+// NewHandlerContainer - Создает новый контейнер хендлеров
+// Входные параметры:
+// logger *logger.Logger - ссылка на логгер
+// service *service.Gofermart - ссылка на реализацию сервисного слоя
 func NewHandlerContainer(logger *logger.Logger, service *service.Gofermart) (*HandlerContainer, error) {
 	return &HandlerContainer{log: logger, gms: service}, nil
 }
 
+// PostUserRegister - Регистрация нового пользователя
 func (hc *HandlerContainer) PostUserRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -46,21 +53,18 @@ func (hc *HandlerContainer) PostUserRegister(w http.ResponseWriter, r *http.Requ
 	case status.StUserAlreadyExists:
 		w.WriteHeader(http.StatusConflict)
 		return
-	case status.StErrorGenerateJWT:
-		w.WriteHeader(http.StatusInternalServerError)
-		return
 	case status.StUserWrongPassword:
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	if st != status.StUserLogined {
+	if st != status.StOk {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     auth.CookieName,
+		Name:     auth.JWTCookieName,
 		Value:    accessToken,
 		Path:     "/",
 		HttpOnly: true,
@@ -75,6 +79,7 @@ func (hc *HandlerContainer) PostUserRegister(w http.ResponseWriter, r *http.Requ
 
 }
 
+// PostUserLogin - Авторизация пользователя
 func (hc *HandlerContainer) PostUserLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -95,21 +100,18 @@ func (hc *HandlerContainer) PostUserLogin(w http.ResponseWriter, r *http.Request
 	case status.StGeneralError:
 		w.WriteHeader(http.StatusInternalServerError)
 		return
-	case status.StErrorGenerateJWT:
-		w.WriteHeader(http.StatusInternalServerError)
-		return
 	case status.StUserWrongPassword:
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	if st != status.StUserLogined {
+	if st != status.StOk {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     auth.CookieName,
+		Name:     auth.JWTCookieName,
 		Value:    accessToken,
 		Path:     "/",
 		HttpOnly: true,
@@ -121,6 +123,7 @@ func (hc *HandlerContainer) PostUserLogin(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
+// MethodUserOrders - оркестратор для обращений по заказам
 func (hc *HandlerContainer) MethodUserOrders(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
@@ -133,6 +136,7 @@ func (hc *HandlerContainer) MethodUserOrders(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// PostUserOrders - новый заказ для добавления в расчет бонусных балов
 func (hc *HandlerContainer) PostUserOrders(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -182,6 +186,7 @@ func (hc *HandlerContainer) PostUserOrders(w http.ResponseWriter, r *http.Reques
 
 }
 
+// GetUserOrders - Получение списка заказов пользователя
 func (hc *HandlerContainer) GetUserOrders(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -220,6 +225,7 @@ func (hc *HandlerContainer) GetUserOrders(w http.ResponseWriter, r *http.Request
 
 }
 
+// GetUserBalance - Получение баланса пользователя
 func (hc *HandlerContainer) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -253,6 +259,7 @@ func (hc *HandlerContainer) GetUserBalance(w http.ResponseWriter, r *http.Reques
 	w.Write(body)
 }
 
+// PostUserBalanceWithdraw - Новое списание бонусных балов
 func (hc *HandlerContainer) PostUserBalanceWithdraw(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -296,6 +303,7 @@ func (hc *HandlerContainer) PostUserBalanceWithdraw(w http.ResponseWriter, r *ht
 	w.WriteHeader(http.StatusOK)
 }
 
+// GetUserWithdrawals - Список списаний бонусных балов
 func (hc *HandlerContainer) GetUserWithdrawals(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)

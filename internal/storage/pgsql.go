@@ -17,11 +17,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// PGSQL - структура для работы с БД Postgresql
+// Реализует интерфейсы GofermartStorage и AccrualStorage
+// Новый экземпляр создается функцией NewStoragePGSQL
 type PGSQL struct {
 	log *logger.Logger
 	db  *sql.DB
 }
 
+// NewStoragePGSQL - возвращает новый PGSQL
+// Входные параметры:
+// logger *logger.Logger - ссылка на логгер
+// dbDSN string - строка соединения с БД
 func NewStoragePGSQL(logger *logger.Logger, dbDSN string) (*PGSQL, error) {
 	llog := logger.With("PGSQL")
 
@@ -69,6 +76,14 @@ func NewStoragePGSQL(logger *logger.Logger, dbDSN string) (*PGSQL, error) {
 	return &pg, nil
 }
 
+// NewUser - функция создает нового пользователя
+// Входящие параметры
+// login - Имя пользователя (регистрозависимо)
+// password - Пароль, рекомендуется передача в виде зашифрованной строки
+// Результат передается в виде status.Status
+// status.StOk - успех
+// status.StUserAlreadyExists - ползователь с таким login уже существует
+// status.StGeneralError - общая ошибка метода
 func (pg *PGSQL) NewUser(login, password string) status.Status {
 
 	args := pgx.NamedArgs{
@@ -94,6 +109,12 @@ func (pg *PGSQL) NewUser(login, password string) status.Status {
 	return status.StOk
 }
 
+// GetUser - функция получения пользователя из БД по логину
+// На вход передается логин пользователя
+// на выходе отдается ссылка на экземпляр model.DBUser и статус в виде status.Status
+// status.StOk - успех, пользователь найден
+// status.StUserNotFound - пользователь не найден
+// status.StGeneralError - общая ошибка метода
 func (pg *PGSQL) GetUser(login string) (*model.DBUser, status.Status) {
 
 	args := pgx.NamedArgs{
@@ -118,6 +139,15 @@ func (pg *PGSQL) GetUser(login string) (*model.DBUser, status.Status) {
 	return &user, status.StOk
 }
 
+// CheckOrderExist - функция проверяет наличие номера заказа в БД по таблицам заказов и списаний для проверки возможности заведения нового заказа
+// Входящие параметры
+// order int - Номер заказа
+// user int - ИД пользователя
+// Результат возвращает в виде status.Status
+// status.StOk - успех, переданный заказ отсуствует в БД
+// status.StOrderDuplicated - заказ уже заведен пользователем ранее
+// status.StOrderAnotherUser - заказ заведен ранее другим пользователем
+// status.StGeneralError - общая ошибка метода
 func (pg *PGSQL) CheckOrderExist(order int, user int) status.Status {
 
 	args := pgx.NamedArgs{
@@ -154,6 +184,11 @@ func (pg *PGSQL) CheckOrderExist(order int, user int) status.Status {
 	return status.StOk
 }
 
+// NewOrder - Заведение нового наряда в БД
+// На вход принимает ссылку на экземпляр model.DBOrder
+// На выходе отдает статус в виде status.Status
+// status.StOk - успех
+// status.StGeneralError - общая ошибка метода (может быть связана с нарушенем constraints на уровне БД)
 func (pg *PGSQL) NewOrder(order *model.DBOrder) status.Status {
 
 	args := pgx.NamedArgs{
@@ -171,6 +206,11 @@ func (pg *PGSQL) NewOrder(order *model.DBOrder) status.Status {
 	return status.StOk
 }
 
+// UpdateOrder - метод обновления заказа, меняются колонки статус, сумма начисления, дата обновления
+// На вход принимает ссылку на экземпляр model.DBOrder
+// На выходе отдает статус в виде status.Status
+// status.StOk - успех
+// status.StGeneralError - общая ошибка метода
 func (pg *PGSQL) UpdateOrder(order *model.DBOrder) status.Status {
 
 	args := pgx.NamedArgs{
@@ -193,6 +233,11 @@ func (pg *PGSQL) UpdateOrder(order *model.DBOrder) status.Status {
 	return status.StOk
 }
 
+// GetOrders - Метод получения списка заказов по ИД пользователя
+// На вход принимает ИД пользователя
+// На выходе отдает ссылку на массив model.DBOrder и статус в виде status.Status
+// status.StOk - успех
+// status.StGeneralError - общая ошибка метода
 func (pg *PGSQL) GetOrders(user int) (*[]model.DBOrder, status.Status) {
 
 	args := pgx.NamedArgs{
@@ -226,6 +271,11 @@ func (pg *PGSQL) GetOrders(user int) (*[]model.DBOrder, status.Status) {
 	return &orders, status.StOk
 }
 
+// GetBalance - Метод получения баланса ползователя
+// На вход принимает ИД пользователя
+// На выходе отдает два числа текущая сумма балов и сумма списанных балов (оба параметра возвращаются в копейках) и статус в виде status.Status
+// status.StOk - успех
+// status.StGeneralError - общая ошибка метода
 func (pg *PGSQL) GetBalance(user int) (int, int, status.Status) {
 
 	args := pgx.NamedArgs{
@@ -252,6 +302,11 @@ func (pg *PGSQL) GetBalance(user int) (int, int, status.Status) {
 	return balance, withdrawals, status.StOk
 }
 
+// NewWithdraw - Метод заведения нового списания
+// На вход принимает ссылку на model.DBWithdraw
+// На выходе отдает статус в виде status.Status
+// status.StOk - успех
+// status.StGeneralError - общая ошибка метода
 func (pg *PGSQL) NewWithdraw(withdraw *model.DBWithdraw) status.Status {
 
 	args := pgx.NamedArgs{
@@ -269,6 +324,11 @@ func (pg *PGSQL) NewWithdraw(withdraw *model.DBWithdraw) status.Status {
 	return status.StOk
 }
 
+// GetWithdrawals - Метод получения списка списаний по ИД пользователя
+// На вход принимает ИД пользователя
+// На выходе отдает ссылку на массив model.DBWithdraw и статус в виде status.Status
+// status.StOk - успех
+// status.StGeneralError - общая ошибка метода
 func (pg *PGSQL) GetWithdrawals(user int) (*[]model.DBWithdraw, status.Status) {
 
 	args := pgx.NamedArgs{
@@ -303,6 +363,11 @@ func (pg *PGSQL) GetWithdrawals(user int) (*[]model.DBWithdraw, status.Status) {
 
 }
 
+// GetOrdersWOaccrual - Метод получения списка заказов находящихся не в финальном статусе
+// На вход принимает limit int - максимальное количество записей в результате
+// На выходе отдает ссылку на массив model.DBOrder и статус в виде status.Status
+// status.StOk - успех
+// status.StGeneralError - общая ошибка метода
 func (pg *PGSQL) GetOrdersWOaccrual(limit int) (*[]model.DBOrder, status.Status) {
 
 	args := pgx.NamedArgs{

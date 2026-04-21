@@ -34,7 +34,7 @@ func run() error {
 	}
 
 	//Логгер
-	llog := logger.NewLogger(cfg.DebugMode, nil)
+	llog := logger.NewLogger(cfg.LogMode, nil)
 
 	//Сторадж
 	storage, err := storage.NewStoragePGSQL(llog, cfg.DatabaseDSN)
@@ -51,7 +51,7 @@ func run() error {
 	llog.Debug("Создан accrual")
 
 	//Сервис gofermart
-	gofermart, err := service.NewGofermart(llog, storage, 2*time.Second)
+	gofermart, err := service.NewGofermart(llog, storage)
 	if err != nil {
 		return err
 	}
@@ -85,14 +85,6 @@ func run() error {
 	llog.Info("Http сервер запущен по адресу " + cfg.ServerHost.String())
 
 	//----------------Запускаем асинхронную обработку очереди сервисного слоя
-
-	/*	wg.Add(1)
-		go func() {
-			defer wg.Done()
-			storage.RunSaveData(ctx)
-			cancel()
-		}()*/
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

@@ -9,6 +9,8 @@ import (
 	"github.com/qesterrx/gofermart/internal/status"
 )
 
+// CheckOrderNumber функция проверки номера заявки
+// Проверяет что переданная строка это число, подходящее под алгоритм Луна, в противном случае возвращает ошибку
 func (gm *Gofermart) CheckOrderNumber(order string) error {
 
 	if len(order) == 0 {
@@ -44,6 +46,12 @@ func (gm *Gofermart) CheckOrderNumber(order string) error {
 	return nil
 }
 
+// NewOrder - функция регистрации нового заказа на расчет бонусов
+// Входящие параметры:
+// user int - ИД пользователя
+// order string - номер заказа
+// При успехе возвращает статус status.StOk
+// При не успехе возвращает один из статусов status.St*
 func (gm *Gofermart) NewOrder(user int, order string) status.Status {
 
 	ord, err := strconv.Atoi(order)
@@ -61,6 +69,11 @@ func (gm *Gofermart) NewOrder(user int, order string) status.Status {
 	return st
 }
 
+// GetOrders - функция возвращающая заказы пользователя на расчет бонусов
+// Входящие параметры:
+// user int - ИД пользователя
+// При успехе возвращает массив заказов в виде model.Order и статус status.StOk
+// При не успехе возвращает один из статусов status.St*
 func (gm *Gofermart) GetOrders(user int) ([]model.Order, status.Status) {
 	dborders, st := gm.storage.GetOrders(user)
 
@@ -77,6 +90,11 @@ func (gm *Gofermart) GetOrders(user int) ([]model.Order, status.Status) {
 	return orders, st
 }
 
+// GetBalance - функция возвращающая баланс пользоватлея
+// Входящие параметры:
+// user int - ИД пользователя
+// При успехе возвращает объект model.Balance и статус status.StOk
+// При не успехе возвращает объект model.Balance (со значениями 0) и один из статусов status.St*
 func (gm *Gofermart) GetBalance(user int) (model.Balance, status.Status) {
 
 	amount, withdraw, st := gm.storage.GetBalance(user)
@@ -84,6 +102,12 @@ func (gm *Gofermart) GetBalance(user int) (model.Balance, status.Status) {
 	return model.Balance{Amount: float32(amount) / 100, Withdrawn: float32(withdraw) / 100}, st
 }
 
+// NewWithdraw - функция создает новое списание балов в счет заказа
+// Входящие параметры:
+// user int - ИД пользователя
+// wd *model.NewWithdraw - объект модели нового списания
+// При успехе возвращает статус status.StOk
+// При не успехе возвращает один из статусов status.St*
 func (gm *Gofermart) NewWithdraw(user int, wd *model.NewWithdraw) status.Status {
 
 	//На всякий случай будем отклонять слишком частые запросы от пользователей на списание - по идее мне тут даже не нужен мьютекс, т.к. при большом количестве запросов я буду просто перетирать значение и не разрешу операцию пока юзер не успокоится, но вообще можно и вынести логику
@@ -106,6 +130,11 @@ func (gm *Gofermart) NewWithdraw(user int, wd *model.NewWithdraw) status.Status 
 	return gm.storage.NewWithdraw(&withdraw)
 }
 
+// GetWithdrawals - функция возвращающая заказы пользователя на списание бонусов
+// Входящие параметры:
+// user int - ИД пользователя
+// При успехе возвращает массив заказов в виде model.Withdraw и статус status.StOk
+// При не успехе возвращает один из статусов status.St*
 func (gm *Gofermart) GetWithdrawals(user int) ([]model.Withdraw, status.Status) {
 	dbwds, st := gm.storage.GetWithdrawals(user)
 

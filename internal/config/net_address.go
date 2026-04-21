@@ -6,15 +6,18 @@ import (
 	"strings"
 )
 
+// NetAddress - тип для структурированного хранения net адреса
 type NetAddress struct {
 	Host string
 	Port int
 }
 
+// Стрингер
 func (na *NetAddress) String() string {
 	return na.Host + ":" + strconv.Itoa(na.Port)
 }
 
+// Метод для установки значения, необходим для возможности использовать струтуру при парсинге параметров через flag
 func (na *NetAddress) Set(value string) error {
 
 	url := value

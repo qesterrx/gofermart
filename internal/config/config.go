@@ -6,13 +6,16 @@ import (
 	"os"
 )
 
+// Config - структура для хранения параметров запуска приложения
 type Config struct {
 	ServerHost  NetAddress
 	AccrualHost NetAddress
 	DatabaseDSN string
-	DebugMode   string
+	LogMode     string
 }
 
+// ParseParamsServer - функция заполнения Config параметрами, переданными при запуске приложения
+// а так же анализом ожидаемых переменных окружения
 func ParseParamsServer() (*Config, error) {
 
 	fs := flag.NewFlagSet("", flag.PanicOnError)
@@ -25,7 +28,7 @@ func ParseParamsServer() (*Config, error) {
 	fs.Var(&cfg.ServerHost, "a", "адрес запуска приложения (host:port)")
 	fs.Var(&cfg.AccrualHost, "r", "адрес приложения интеграции с accrual (host:port)")
 	fs.StringVar(&cfg.DatabaseDSN, "d", "postgres://user:pswd@localhost:5432/db?sslmode=disable", "строка соединения с БД")
-	fs.StringVar(&cfg.DebugMode, "m", "info", "уровень логирования debug/info/error")
+	fs.StringVar(&cfg.LogMode, "m", "info", "уровень логирования debug/info/error")
 
 	fs.Parse(os.Args[1:])
 
@@ -52,7 +55,7 @@ func ParseParamsServer() (*Config, error) {
 		cfg.DatabaseDSN = envDatabaseDNS
 	}
 
-	if !(cfg.DebugMode == "debug" || cfg.DebugMode == "info" || cfg.DebugMode == "error") {
+	if !(cfg.LogMode == "debug" || cfg.LogMode == "info" || cfg.LogMode == "error") {
 		return nil, fmt.Errorf("режим логирования может принимать значения debug/info/error")
 	}
 

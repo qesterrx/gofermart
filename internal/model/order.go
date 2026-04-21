@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+// OrderStatus - Статус заявки в системе
 type OrderStatus string
 
 const (
@@ -13,6 +14,7 @@ const (
 	OrderStProcessed  OrderStatus = "PROCESSED"
 )
 
+// DBOrder Модель БД описывающая заявки на начисление бонусных балов
 type DBOrder struct {
 	Order    int
 	User     int
@@ -22,6 +24,7 @@ type DBOrder struct {
 	Updated  time.Time
 }
 
+// Order Модель для Handlerов, описывающая заявки на начисление бонусных балов
 type Order struct {
 	Order    string      `json:"number"`
 	Status   OrderStatus `json:"status"`

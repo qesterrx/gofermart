@@ -7,9 +7,10 @@ import (
 	"github.com/qesterrx/gofermart/internal/auth"
 )
 
+// JWTAccess - middleware проверяющий наличие cookie авторизации и добавляющий из него ИД пользователя в контекст *http.Request
 func JWTAccess(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(auth.CookieName)
+		cookie, err := r.Cookie(auth.JWTCookieName)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			return

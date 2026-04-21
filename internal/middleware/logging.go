@@ -25,6 +25,7 @@ func (lrw *logResponseWriter) WriteHeader(statusCode int) {
 	lrw.ResponseWriter.WriteHeader(statusCode)
 }
 
+// LoggingHandler - middleware логирования http запросов
 func LoggingHandler(logger *logger.Logger) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		logging := func(w http.ResponseWriter, r *http.Request) {
