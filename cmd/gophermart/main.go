@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/qesterrx/gofermart/internal/server"
 	"github.com/qesterrx/gofermart/internal/service"
 	"github.com/qesterrx/gofermart/internal/storage"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -23,8 +23,6 @@ func main() {
 }
 
 func run() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	//----------------Создаем необходимые сущности
 	//Конфиг приложения
@@ -69,28 +67,26 @@ func run() error {
 	llog.Debug("Создан server")
 
 	//----------------Запускаем сервер
-	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	g, ctx := errgroup.WithContext(ctx)
 
-	wg.Add(1)
 	llog.Debug("Запуск http сервера")
-	go func() {
-		defer wg.Done()
+	g.Go(func() error {
 		err := server.ListenAndServe()
 		if ctx.Err() == nil {
 			//Ошибку отображаем только если контекст не завершен
 			llog.Error("Ошибка в работе сервера ListenAndServe:" + err.Error())
+			return err
 		}
-		cancel()
-	}()
+		return nil
+	})
 	llog.Info("Http сервер запущен по адресу " + cfg.ServerHost.String())
 
 	//----------------Запускаем асинхронную обработку очереди сервисного слоя
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	g.Go(func() error {
 		accrual.RunCheckaccrualAsync(ctx, 20, 2*time.Second)
-		cancel()
-	}()
+		return nil
+	})
 
 	//----------------Остановка
 
@@ -111,6 +107,6 @@ func run() error {
 	}
 
 	llog.Info("Http сервер остановлен")
-	wg.Wait()
-	return nil
+
+	return g.Wait()
 }

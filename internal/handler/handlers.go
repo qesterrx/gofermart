@@ -138,19 +138,6 @@ func (hc *HandlerContainer) PostUserLogin(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
-// MethodUserOrders - оркестратор для обращений по заказам
-func (hc *HandlerContainer) MethodUserOrders(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		hc.PostUserOrders(w, r)
-	case http.MethodGet:
-		hc.GetUserOrders(w, r)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-
-	}
-}
-
 // PostUserOrders - новый заказ для добавления в расчет бонусных балов
 func (hc *HandlerContainer) PostUserOrders(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
