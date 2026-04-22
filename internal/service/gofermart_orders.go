@@ -114,9 +114,15 @@ func (gm *Gofermart) GetOrders(user int) ([]model.Order, status.Status) {
 // При не успехе возвращает объект model.Balance (со значениями 0) и один из статусов status.St*
 func (gm *Gofermart) GetBalance(user int) (model.Balance, status.Status) {
 
-	amount, withdraw, st := gm.storage.GetBalance(user)
+	amountInt, withdrawInt, st := gm.storage.GetBalance(user)
+	fmt.Println("GetBalance", amountInt, withdrawInt)
 
-	return model.Balance{Amount: float32(amount) / 100, Withdrawn: float32(withdraw) / 100}, st
+	amount := float32(amountInt) / 100
+	withdraw := float32(withdrawInt) / 100
+
+	fmt.Println("GetBalance", amount, withdraw)
+
+	return model.Balance{Amount: amount, Withdrawn: withdraw}, st
 }
 
 // NewWithdraw - функция создает новое списание балов в счет заказа
@@ -126,6 +132,9 @@ func (gm *Gofermart) GetBalance(user int) (model.Balance, status.Status) {
 // При успехе возвращает статус status.StOk
 // При не успехе возвращает один из статусов status.St*
 func (gm *Gofermart) NewWithdraw(user int, wd *model.NewWithdraw) status.Status {
+
+	fmt.Println("NewWithdraw", wd)
+	fmt.Println("NewWithdraw", *wd)
 
 	ord, err := strconv.Atoi(wd.Order)
 	if err != nil {

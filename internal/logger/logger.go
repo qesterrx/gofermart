@@ -19,9 +19,9 @@ type Logger struct {
 // NewLogger - Возвращает новый экземпляр Logger
 // На вход принимает:
 // mode string - уровень логгера debug/info/error
-// writer io.Writer - опционально - райтер для записи логов
-func NewLogger(mode string, writer io.Writer) *Logger {
-	io := writer
+// w io.Writer - опционально - райтер для записи логов
+func NewLogger(mode string, w io.Writer) *Logger {
+	io := w
 	if io == nil {
 		io = zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	}

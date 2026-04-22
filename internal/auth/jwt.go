@@ -8,6 +8,10 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type contextKey string
+
+const JWTContextKeys contextKey = "ContextContainer"
+
 // JWTSecretKey - Ключ для кодирования JWT токена
 var JWTSecretKey []byte = []byte("hello")
 

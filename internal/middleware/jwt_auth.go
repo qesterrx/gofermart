@@ -22,7 +22,7 @@ func JWTAccess(h http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "user", jwtc)
+		ctx := context.WithValue(r.Context(), auth.JWTContextKeys, jwtc)
 		h.ServeHTTP(w, r.WithContext(ctx))
 	}
 

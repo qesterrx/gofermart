@@ -32,7 +32,7 @@ func run() error {
 	}
 
 	//Логгер
-	llog := logger.NewLogger(cfg.LogMode, nil)
+	llog := logger.NewLogger("debug", nil)
 
 	//Сторадж
 	storage, err := storage.NewStoragePGSQL(llog, cfg.DatabaseDSN)

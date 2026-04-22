@@ -150,7 +150,7 @@ func (hc *HandlerContainer) PostUserOrders(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	jwtc, ok := r.Context().Value(auth.JWTContextKeys).(*auth.JWTC)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -195,7 +195,7 @@ func (hc *HandlerContainer) GetUserOrders(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	jwtc, ok := r.Context().Value(auth.JWTContextKeys).(*auth.JWTC)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -234,7 +234,7 @@ func (hc *HandlerContainer) GetUserBalance(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	jwtc, ok := r.Context().Value(auth.JWTContextKeys).(*auth.JWTC)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -268,7 +268,7 @@ func (hc *HandlerContainer) PostUserBalanceWithdraw(w http.ResponseWriter, r *ht
 		return
 	}
 
-	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	jwtc, ok := r.Context().Value(auth.JWTContextKeys).(*auth.JWTC)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -312,7 +312,7 @@ func (hc *HandlerContainer) GetUserWithdrawals(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	jwtc, ok := r.Context().Value("user").(*auth.JWTC)
+	jwtc, ok := r.Context().Value(auth.JWTContextKeys).(*auth.JWTC)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		return

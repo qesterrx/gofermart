@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/qesterrx/gofermart/internal/handler"
 	"github.com/qesterrx/gofermart/internal/logger"
 	"github.com/qesterrx/gofermart/internal/middleware"
@@ -25,29 +24,34 @@ type ServerGofermatr struct {
 // handlers *handler.HandlerContainer - ссылка на объект HandlerContainer
 func NewServer(log *logger.Logger, address string, handlers *handler.HandlerContainer) *ServerGofermatr {
 
-	r := chi.NewRouter()
+	mux := http.NewServeMux()
 
-	r.Use(middleware.LoggingHandler(log))
+	//Middleware
+	logging := middleware.LoggingHandler(log)
+	JWT := middleware.JWTAccess
+	JSON := middleware.JsonContentType
 
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.JsonContentType)
-		r.Post("/api/user/register", handlers.PostUserRegister)
-		r.Post("/api/user/login", handlers.PostUserLogin)
-	})
+	UserRegister := JSON(logging(http.HandlerFunc(handlers.PostUserRegister)))
+	UserLogin := JSON(logging(http.HandlerFunc(handlers.PostUserLogin)))
+	NewUserOrder := JWT(logging(http.HandlerFunc(handlers.PostUserOrders)))
+	GetUserOrders := JWT(logging(http.HandlerFunc(handlers.GetUserOrders)))
+	UserBalance := JWT(logging(http.HandlerFunc(handlers.GetUserBalance)))
+	UserBalanceWithdraw := JSON(JWT(logging(http.HandlerFunc(handlers.PostUserBalanceWithdraw))))
+	UserWithdrawals := JWT(logging(http.HandlerFunc(handlers.GetUserWithdrawals)))
 
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.JWTAccess)
-		r.Post("/api/user/orders", handlers.PostUserOrders)
-		r.Get("/api/user/orders", handlers.GetUserOrders)
-		r.Get("/api/user/balance", handlers.GetUserBalance)
-		r.With(middleware.JsonContentType).Post("/api/user/balance/withdraw", handlers.PostUserBalanceWithdraw)
-		r.Get("/api/user/withdrawals", handlers.GetUserWithdrawals)
-	})
+	//Route
+	mux.Handle("POST /api/user/register", UserRegister)
+	mux.Handle("POST /api/user/login", UserLogin)
+	mux.Handle("POST /api/user/orders", NewUserOrder)
+	mux.Handle("GET /api/user/orders", GetUserOrders)
+	mux.Handle("GET /api/user/balance", UserBalance)
+	mux.Handle("POST /api/user/balance/withdraw", UserBalanceWithdraw)
+	mux.Handle("GET /api/user/withdrawals", UserWithdrawals)
 
 	//Server
 	server := &http.Server{
 		Addr:              address,
-		Handler:           r,
+		Handler:           mux,
 		ReadTimeout:       2 * time.Second,  // Максимальное время на чтение запроса - запросы короткие, данных мало
 		ReadHeaderTimeout: 1 * time.Second,  // Время чтения заголовка - меньше чем ReadTimeout
 		WriteTimeout:      5 * time.Second,  // Максимальное время на запись ответа
