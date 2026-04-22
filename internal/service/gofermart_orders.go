@@ -115,12 +115,11 @@ func (gm *Gofermart) GetOrders(user int) ([]model.Order, status.Status) {
 func (gm *Gofermart) GetBalance(user int) (model.Balance, status.Status) {
 
 	amountInt, withdrawInt, st := gm.storage.GetBalance(user)
-	fmt.Println("GetBalance", amountInt, withdrawInt)
 
 	amount := float32(amountInt) / 100
 	withdraw := float32(withdrawInt) / 100
 
-	fmt.Println("GetBalance", amount, withdraw)
+	gm.log.Debug(fmt.Sprintln("GetBalance result", amount, withdraw))
 
 	return model.Balance{Amount: amount, Withdrawn: withdraw}, st
 }
@@ -133,8 +132,7 @@ func (gm *Gofermart) GetBalance(user int) (model.Balance, status.Status) {
 // При не успехе возвращает один из статусов status.St*
 func (gm *Gofermart) NewWithdraw(user int, wd *model.NewWithdraw) status.Status {
 
-	fmt.Println("NewWithdraw", wd)
-	fmt.Println("NewWithdraw", *wd)
+	gm.log.Debug(fmt.Sprintln("NewWithdraw", wd))
 
 	ord, err := strconv.Atoi(wd.Order)
 	if err != nil {
