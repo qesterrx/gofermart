@@ -178,7 +178,7 @@ Content-Length: 0
     200 OK HTTP/1.1
     Content-Type: application/json
     ...
-    
+
     [
     	{
             "number": "9278923470",
@@ -226,7 +226,7 @@ Content-Length: 0
     200 OK HTTP/1.1
     Content-Type: application/json
     ...
-    
+
     {
     	"current": 500.5,
     	"withdrawn": 42
@@ -289,7 +289,7 @@ Content-Length: 0
     200 OK HTTP/1.1
     Content-Type: application/json
     ...
-    
+
     [
         {
             "order": "2377225624",
@@ -326,7 +326,7 @@ Content-Length: 0
     200 OK HTTP/1.1
     Content-Type: application/json
     ...
-    
+
     {
         "order": "<number>",
         "status": "PROCESSED",
@@ -356,7 +356,7 @@ Content-Length: 0
     429 Too Many Requests HTTP/1.1
     Content-Type: text/plain
     Retry-After: 60
-    
+
     No more than N requests per minute allowed
     ```
 
